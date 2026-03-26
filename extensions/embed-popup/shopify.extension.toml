@@ -1,0 +1,11 @@
+name = "embed-popup"
+type = "theme"
+uid = "8bdafa9a-42be-10e4-c60f-c3b6d059e0964dd6e84a"
+
+[[extensions]]
+type = "theme"
+name = "Popup Embed"
+handle = "popup-embed"
+
+  [[extensions.targeting]]
+  target = "body"

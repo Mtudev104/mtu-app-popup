@@ -1,0 +1,241 @@
+{% assign cfg = shop.metafields.mtu_popup.config.value %}
+
+{% if cfg and cfg.isActive %}
+
+<style>
+  #mtu-popup {
+    display: flex;
+    flex-direction: row;
+  }
+  #mtu-popup-image-wrap {
+    width: 40%;
+    background: #eee;
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  #mtu-popup-content {
+    width: 60%;
+    padding: 0 25px;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  /* Tablet */
+  @media (max-width: 768px) {
+    #mtu-popup {
+      max-width: 90% !important;
+      flex-direction: column;
+    }
+    #mtu-popup-image-wrap {
+      width: 100%;
+      height: 180px;
+    }
+    #mtu-popup-content {
+      width: 100%;
+      padding: 16px 12px 8px;
+    }
+  }
+
+  /* Mobile */
+  @media (max-width: 480px) {
+    #mtu-popup {
+      width: 95% !important;
+      padding: 10px !important;
+      border-radius: 10px !important;
+    }
+    #mtu-popup-image-wrap {
+      height: 140px;
+    }
+    #mtu-popup-content {
+      padding: 12px 8px 4px;
+    }
+    #mtu-popup-content h3 {
+      font-size: 15px !important;
+    }
+    #mtu-popup-content p {
+      font-size: 13px !important;
+    }
+  }
+</style>
+
+<div
+  id="mtu-popup-overlay"
+  style="
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9998;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+  "
+>
+  <div
+    id="mtu-popup"
+    style="
+      position: relative;
+      max-width: 800px;
+      width: 95%;
+      padding: 12px 14px;
+      border-radius: 6px;
+      background: {{ cfg.bgColor }};
+      color: {{ cfg.textColor }};
+      z-index: 9999;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+      opacity: 0;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+      transform: {% if cfg.animation == 'slide' %}translateY(40px){% else %}scale(0.95){% endif %};
+      box-sizing: border-box;
+    "
+  >
+    {% if cfg.showClose %}
+    <button
+      id="mtu-popup-close"
+      style="
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background: #ffffff;
+        padding: 6px 7px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        border: none;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.32);
+        font-size: 10px;
+        cursor: pointer;
+        color: {{ cfg.textColor }};
+        line-height: 1;
+        z-index: 1;
+      "
+    >✕</button>
+    {% endif %}
+
+    {% if cfg.image and cfg.image != blank %}
+      <div id="mtu-popup-image-wrap">
+        <img
+          src="{{ cfg.image }}"
+          alt=""
+          width="480"
+          height="320"
+          style="width: 100%; height: 100%; object-fit: cover; display: block;"
+        />
+      </div>
+    {% endif %}
+
+    <div id="mtu-popup-content" style="color: {{ cfg.textColor }};">
+      {% if cfg.title and cfg.title != blank %}
+        <h3 style="margin: 0 0 8px; font-size: 18px; color: {{ cfg.textColor }};">
+          {{ cfg.title }}
+        </h3>
+      {% endif %}
+
+      {% if cfg.description and cfg.description != blank %}
+        <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.5; color: {{ cfg.textColor }}; opacity: 0.8;">
+          {{ cfg.description }}
+        </p>
+      {% endif %}
+
+      {% if cfg.btnText and cfg.btnText != blank %}
+        {% if cfg.btnLink and cfg.btnLink != blank %}
+          <a
+            href="{{ cfg.btnLink }}"
+            style="
+              background: {{ cfg.btnColor }};
+              color: {{ cfg.textColor }};
+              border: none;
+              border-radius: 20px;
+              padding: 10px 20px;
+              font-size: 14px;
+              font-weight: 600;
+              cursor: pointer;
+              width: 100%;
+              text-decoration: none;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              box-sizing: border-box;
+            "
+          >{{ cfg.btnText }}</a>
+        {% else %}
+          <button
+            type="button"
+            style="
+              background: {{ cfg.btnColor }};
+              color: {{ cfg.textColor }};
+              border: none;
+              border-radius: 20px;
+              padding: 10px 20px;
+              font-size: 14px;
+              font-weight: 600;
+              cursor: pointer;
+              width: 100%;
+              box-sizing: border-box;
+            "
+          >{{ cfg.btnText }}</button>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    var overlay = document.getElementById('mtu-popup-overlay');
+    var popup = document.getElementById('mtu-popup');
+    var closeBtn = document.getElementById('mtu-popup-close');
+    var delay = {{ cfg.delay | default: 3 }} * 1000;
+    var position = '{{ cfg.position | default: "center" }}';
+
+    if (position === 'bottom-left') {
+      overlay.style.alignItems = 'flex-end';
+      overlay.style.justifyContent = 'flex-start';
+      overlay.style.padding = '24px';
+    } else if (position === 'bottom-right') {
+      overlay.style.alignItems = 'flex-end';
+      overlay.style.justifyContent = 'flex-end';
+      overlay.style.padding = '24px';
+    }
+
+    function showPopup() {
+      overlay.style.display = 'flex';
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          popup.style.opacity = '1';
+          popup.style.transform = {% if cfg.animation == 'slide' %}'translateY(0) scale(1)'{% else %}'scale(1)'{% endif %};
+        });
+      });
+    }
+
+    function hidePopup() {
+      popup.style.opacity = '0';
+      popup.style.transform = {% if cfg.animation == 'slide' %}'translateY(40px)'{% else %}'scale(0.95)'{% endif %};
+      setTimeout(function() { overlay.style.display = 'none'; }, 400);
+    }
+
+    setTimeout(showPopup, delay);
+
+    if (closeBtn) closeBtn.addEventListener('click', hidePopup);
+
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) hidePopup();
+    });
+  })();
+</script>
+
+{% endif %}
+
+{% schema %}
+{
+  "name": "MTU Popup",
+  "target": "body",
+  "settings": []
+}
+{% endschema %}
