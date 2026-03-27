@@ -9,7 +9,20 @@ import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import prisma from "../db.server";
-import styles from "./styles/popup.module.css";
+import {
+  Card,
+  BlockStack,
+  InlineStack,
+  Text,
+  TextField,
+  Checkbox,
+  Button,
+  InlineGrid,
+  Layout,
+  Divider,
+  Box,
+  Page,
+} from "@shopify/polaris";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -22,20 +35,37 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const body = await request.json();
-
   const popup = await prisma.popup.upsert({
     where: { shop: session.shop },
     update: body,
     create: { shop: session.shop, ...body },
   });
-
   return { popup };
 };
 
 type Tab = "general" | "content" | "design" | "display";
-
+const TABS: Tab[] = ["general", "content", "design", "display"];
 const POSITIONS = ["center", "bottom-left", "bottom-right"] as const;
 const ANIMATIONS = ["fade", "slide"] as const;
+
+const DEFAULT_POPUP = {
+  name: "My Popup",
+  isActive: false,
+  delay: 3,
+  title: "Don't want to miss anything?",
+  description:
+    "Be the first to see new arrivals, exclusive deals and much more.",
+  btnText: "Explore And Shop Now!",
+  btnLink: "",
+  bgColor: "#ffffff",
+  textColor: "#000000",
+  btnColor: "#000000",
+  image:
+    "https://lavenderstudio.com.vn/wp-content/uploads/2017/03/chup-lookbook-dep-sg.jpg",
+  position: "center",
+  animation: "fade",
+  showClose: true,
+};
 
 export default function Index() {
   const { popup: initialPopup } = useLoaderData<typeof loader>();
@@ -44,28 +74,8 @@ export default function Index() {
   const shopify = useAppBridge();
   const [activeTab, setActiveTab] = useState<Tab>("general");
   const [imageUploading, setImageUploading] = useState(false);
-  // const [isUploading, setIsUploading] = useState(false);
+  const [pendingPublish, setPendingPublish] = useState(false);
 
-  // Default values khớp với preview đang hiển thị
-  const DEFAULT_POPUP = {
-    name: "My Popup",
-    isActive: false,
-    delay: 3,
-    title: "Don't want to miss anything?",
-    description:
-      "Be the first to see new arrivals, exclusive deals and much more.",
-    btnText: "Explore And Shop Now!",
-    btnLink: "",
-    bgColor: "#ffffff",
-    textColor: "#000000",
-    btnColor: "#cccc",
-    image:
-      "https://lavenderstudio.com.vn/wp-content/uploads/2017/03/chup-lookbook-dep-sg.jpg",
-    position: "center",
-    animation: "fade",
-    showClose: true,
-  };
-  // Form state — khởi tạo từ DB
   const [form, setForm] = useState({
     name: initialPopup?.name || DEFAULT_POPUP.name,
     isActive: initialPopup?.isActive ?? DEFAULT_POPUP.isActive,
@@ -85,68 +95,8 @@ export default function Index() {
 
   const isSaving = fetcher.state !== "idle";
   const isPublishing = publishFetcher.state !== "idle";
+  const isDisabled = imageUploading || isSaving || isPublishing;
 
-  // Toast khi save/publish thành công
-  useEffect(() => {
-    if (fetcher.data?.popup) {
-      shopify.toast.show("Saved successfully");
-    }
-  }, [fetcher.data]);
-
-  useEffect(() => {
-    if (publishFetcher.data?.success) {
-      shopify.toast.show("Published to storefront!");
-    }
-    if (publishFetcher.data?.error) {
-      shopify.toast.show(publishFetcher.data.error, { isError: true });
-    }
-  }, [publishFetcher.data]);
-
-  const update = useCallback((key: string, value: any) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }, []);
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // preview
-    const preview = URL.createObjectURL(file);
-
-    setForm((prev) => ({
-      ...prev,
-      image: preview,
-    }));
-
-    setImageUploading(true);
-
-    // upload lên Shopify
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const res = await fetch("/app/upload", {
-      method: "POST",
-      body: formData,
-    });
-
-    const data = await res.json();
-
-    setImageUploading(false);
-
-    setForm((prev) => ({
-      ...prev,
-      image: data.url, // URL từ Shopify
-    }));
-  };
-
-  const handleSave = () => {
-    fetcher.submit(form, {
-      method: "POST",
-      encType: "application/json",
-    });
-  };
-
-  // Thêm useEffect theo dõi fetcher.data
   useEffect(() => {
     if (fetcher.data?.popup && pendingPublish) {
       setPendingPublish(false);
@@ -161,7 +111,30 @@ export default function Index() {
     }
   }, [fetcher.data]);
 
-  const [pendingPublish, setPendingPublish] = useState(false);
+  useEffect(() => {
+    if (publishFetcher.data?.success) shopify.toast.show("Pop-up updated");
+    if (publishFetcher.data?.error)
+      shopify.toast.show(publishFetcher.data.error, { isError: true });
+  }, [publishFetcher.data]);
+
+  const update = useCallback((key: string, value: any) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const preview = URL.createObjectURL(file);
+    setForm((prev) => ({ ...prev, image: preview }));
+    setImageUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/app/upload", { method: "POST", body: formData });
+    const data = await res.json();
+    setImageUploading(false);
+    if (data.url) setForm((prev) => ({ ...prev, image: data.url }));
+    else shopify.toast.show(data.error || "Upload failed", { isError: true });
+  };
 
   const handlePublish = () => {
     setPendingPublish(true);
@@ -170,410 +143,433 @@ export default function Index() {
 
   return (
     <>
-      <style>{`
-      @keyframes mtu-spin {
-        to { transform: rotate(360deg); }
-      }
-    `}</style>
-      <s-page heading="Popup Builder">
-        {/* Action buttons */}
-        <s-button
+      <style>{`@keyframes mtu-spin { to { transform: rotate(360deg); } }`}</style>
+      <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+        {/* <s-button
           slot="primary-action"
           onClick={handlePublish}
           {...(isPublishing ? { loading: true } : {})}
-          {...(imageUploading ? { disabled: true } : {})}
+          {...(isDisabled ? { disabled: true } : {})}
         >
           Publish
-        </s-button>
+        </s-button> */}
 
-        <div className={styles.pageContainer}>
-          {/* Layout 2 cột */}
-          <div className={styles.layoutGrid}>
-            {/* CỘT TRÁI — Editor */}
-            <div>
-              <s-section>
+        {/* Layout 2 cột */}
+        <div style={{ padding: 16, maxWidth: "82rem" }}>
+          <Layout>
+            <Layout.Section variant="oneThird">
+              {/* CỘT TRÁI — Editor */}
+              <Card padding="0">
                 {/* Tabs */}
-                <div className={styles.tabs}>
-                  {(["general", "content", "design", "display"] as Tab[]).map(
-                    (tab) => (
+                <div style={{ borderBottom: "1px solid #e1e3e5" }}>
+                  <InlineStack gap="0">
+                    {TABS.map((tab) => (
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`${styles.tabButton} ${
-                          activeTab === tab ? styles.tabButtonActive : ""
-                        }`}
+                        style={{
+                          padding: "12px 18px",
+                          border: "none",
+                          background: "none",
+                          cursor: "pointer",
+                          borderBottom:
+                            activeTab === tab
+                              ? "2px solid #008060"
+                              : "2px solid transparent",
+                          color: activeTab === tab ? "#008060" : "#6d7175",
+                          fontWeight: activeTab === tab ? 600 : 400,
+                          fontSize: 14,
+                          textTransform: "capitalize",
+                        }}
                       >
                         {tab}
                       </button>
-                    ),
-                  )}
+                    ))}
+                  </InlineStack>
                 </div>
 
-                {/* Tab: General */}
-                {activeTab === "general" && (
-                  <div className={styles.stack16}>
-                    <s-section heading="General Settings">
-                      <s-text-field
+                <Box padding="400">
+                  {/* Tab: General */}
+                  {activeTab === "general" && (
+                    <BlockStack gap="400">
+                      <TextField
                         label="Popup name"
                         value={form.name}
-                        onChange={(e: any) => update("name", e.target.value)}
-                        //helpText="Internal name, not shown to customers"
+                        onChange={(v) => update("name", v)}
+                        helpText="Internal name, not shown to customers"
+                        autoComplete="off"
                       />
-                      <p className={styles.helpText}>
-                        Internal name, not shown to customers
-                      </p>
-                      <div className={styles.mt16}>
-                        <label className={styles.checkboxLabel}>
-                          <input
-                            type="checkbox"
-                            checked={form.isActive}
-                            onChange={(e) =>
-                              update("isActive", e.target.checked)
-                            }
-                          />
-                          <span className={styles.checkboxLabelText}>
-                            Active popup
-                          </span>
-                        </label>
-                      </div>
-                      <div className={styles.mt16}>
-                        <p className={styles.fieldLabel}>Delay (seconds)</p>
-                        <input
-                          type="number"
-                          value={form.delay}
-                          min={0}
-                          onChange={(e) =>
-                            update("delay", Number(e.target.value))
-                          }
-                          className={styles.delayInput}
-                        />
-                        <p className={styles.helpText}>
-                          How long to wait before showing the popup
-                        </p>
-                      </div>
-                    </s-section>
-                  </div>
-                )}
+                      <Checkbox
+                        label="Active popup"
+                        checked={form.isActive}
+                        onChange={(v) => update("isActive", v)}
+                      />
+                      <TextField
+                        label="Delay (seconds)"
+                        type="number"
+                        value={String(form.delay)}
+                        onChange={(v) => update("delay", Number(v))}
+                        helpText="How long to wait before showing the popup"
+                        autoComplete="off"
+                      />
+                    </BlockStack>
+                  )}
 
-                {/* Tab: Content */}
-                {activeTab === "content" && (
-                  <s-section heading="Content">
-                    <div className={styles.stack16}>
-                      <s-text-field
+                  {/* Tab: Content */}
+                  {activeTab === "content" && (
+                    <BlockStack gap="400">
+                      <TextField
                         label="Title"
                         value={form.title}
-                        onChange={(e: any) => update("title", e.target.value)}
+                        onChange={(v) => update("title", v)}
+                        autoComplete="off"
                       />
-                      <div>
-                        <p className={styles.fieldLabel}>Description</p>
-                        <textarea
-                          value={form.description}
-                          onChange={(e) =>
-                            update("description", e.target.value)
-                          }
-                          rows={3}
-                          className={styles.textarea}
-                        />
-                      </div>
-                      <s-text-field
+                      <TextField
+                        label="Description"
+                        value={form.description}
+                        onChange={(v) => update("description", v)}
+                        multiline={3}
+                        autoComplete="off"
+                      />
+                      <TextField
                         label="Button text"
                         value={form.btnText}
-                        onChange={(e: any) => update("btnText", e.target.value)}
+                        onChange={(v) => update("btnText", v)}
+                        autoComplete="off"
                       />
-                      <s-text-field
+                      <TextField
                         label="Button link"
                         value={form.btnLink}
-                        onChange={(e: any) => update("btnLink", e.target.value)}
+                        onChange={(v) => update("btnLink", v)}
                         placeholder="https://"
+                        autoComplete="off"
                       />
-                    </div>
-                  </s-section>
-                )}
+                    </BlockStack>
+                  )}
 
-                {/* Tab: Design */}
-                {activeTab === "design" && (
-                  <s-section heading="Design">
-                    <div className={styles.stack20}>
-                      <div>
-                        <p className={styles.fieldLabel}>Background color</p>
-
-                        <div className={styles.row8}>
-                          {/* Input text */}
-                          <input
-                            type="text"
-                            value={form.bgColor}
-                            onChange={(e) => update("bgColor", e.target.value)}
-                            className={styles.textInput}
-                          />
-
-                          {/* Color picker */}
-                          <input
-                            type="color"
-                            value={form.bgColor}
-                            onChange={(e) => update("bgColor", e.target.value)}
-                            className={styles.colorInput}
-                          />
+                  {/* Tab: Design */}
+                  {activeTab === "design" && (
+                    <BlockStack gap="400">
+                      {/* Color fields */}
+                      {[
+                        { label: "Background color", key: "bgColor" },
+                        { label: "Text color", key: "textColor" },
+                        { label: "Button color", key: "btnColor" },
+                      ].map(({ label, key }) => (
+                        <div key={key}>
+                          <Text as="p" variant="bodyMd" fontWeight="medium">
+                            {label}
+                          </Text>
+                          <Box paddingBlockStart="100">
+                            <InlineStack gap="200" blockAlign="center">
+                              <div style={{ flex: 1 }}>
+                                <TextField
+                                  label=""
+                                  labelHidden
+                                  value={(form as any)[key]}
+                                  onChange={(v) => update(key, v)}
+                                  autoComplete="off"
+                                />
+                              </div>
+                              <input
+                                type="color"
+                                value={(form as any)[key]}
+                                onChange={(e) => update(key, e.target.value)}
+                                style={{
+                                  width: 48,
+                                  height: 36,
+                                  borderRadius: 4,
+                                  cursor: "pointer",
+                                  padding: 2,
+                                  border: "1px solid #ccc",
+                                }}
+                              />
+                            </InlineStack>
+                          </Box>
                         </div>
-                      </div>
-                      {/* Text color */}
-                      <div>
-                        <p className={styles.fieldLabel}>Text color</p>
-                        <div className={styles.row8}>
-                          <input
-                            type="text"
-                            value={form.textColor}
-                            onChange={(e) =>
-                              update("textColor", e.target.value)
-                            }
-                            className={styles.textInput}
-                          />
-                          <input
-                            type="color"
-                            value={form.textColor}
-                            onChange={(e) =>
-                              update("textColor", e.target.value)
-                            }
-                            className={styles.colorInput}
-                          />
-                        </div>
-                      </div>
+                      ))}
 
-                      {/* Button color */}
-                      <div>
-                        <p className={styles.fieldLabel}>Button color</p>
-                        <div className={styles.row8}>
-                          <input
-                            type="text"
-                            value={form.btnColor}
-                            onChange={(e) => update("btnColor", e.target.value)}
-                            className={styles.textInput}
-                          />
-                          <input
-                            type="color"
-                            value={form.btnColor}
-                            onChange={(e) => update("btnColor", e.target.value)}
-                            className={styles.colorInput}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <p className={styles.fieldLabel}>Image</p>
+                      <Divider />
 
-                        {/* Preview */}
-                        {form.image && (
-                          <div
-                            style={{ position: "relative", marginBottom: 12 }}
+                      {/* Image upload */}
+                      <div>
+                        <Text as="p" variant="bodyMd" fontWeight="medium">
+                          Image
+                        </Text>
+                        <Box paddingBlockStart="200">
+                          {form.image && (
+                            <div
+                              style={{
+                                position: "relative",
+                                marginBottom: 12,
+                              }}
+                            >
+                              <img
+                                src={form.image}
+                                alt=""
+                                style={{
+                                  width: "100%",
+                                  maxHeight: 200,
+                                  objectFit: "cover",
+                                  borderRadius: 8,
+                                  display: "block",
+                                  opacity: imageUploading ? 0.5 : 1,
+                                  transition: "opacity 0.3s ease",
+                                }}
+                              />
+                              {imageUploading && (
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    inset: 0,
+                                    borderRadius: 8,
+                                    background: "rgba(0,0,0,0.35)",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      width: 32,
+                                      height: 32,
+                                      border: "3px solid rgba(255,255,255,0.3)",
+                                      borderTop: "3px solid #fff",
+                                      borderRadius: "50%",
+                                      animation:
+                                        "mtu-spin 0.8s linear infinite",
+                                    }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <label
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              padding: "0 14px",
+                              height: 36,
+                              border: "1px solid #ccc",
+                              borderRadius: 6,
+                              background: "#f6f6f7",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              color: "#333",
+                              cursor: imageUploading
+                                ? "not-allowed"
+                                : "pointer",
+                              opacity: imageUploading ? 0.6 : 1,
+                            }}
                           >
+                            {imageUploading ? "Uploading..." : "Choose file"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              disabled={imageUploading}
+                              style={{ display: "none" }}
+                              onChange={handleFileChange}
+                            />
+                          </label>
+                        </Box>
+                      </div>
+                    </BlockStack>
+                  )}
+
+                  {/* Tab: Display */}
+                  {activeTab === "display" && (
+                    <BlockStack gap="400">
+                      <div>
+                        <Text as="p" variant="bodyMd" fontWeight="medium">
+                          Position
+                        </Text>
+                        <Box paddingBlockStart="200">
+                          <InlineStack gap="200">
+                            {POSITIONS.map((pos) => (
+                              <Button
+                                key={pos}
+                                pressed={form.position === pos}
+                                onClick={() => update("position", pos)}
+                              >
+                                {pos}
+                              </Button>
+                            ))}
+                          </InlineStack>
+                        </Box>
+                      </div>
+                      <div>
+                        <Text as="p" variant="bodyMd" fontWeight="medium">
+                          Animation
+                        </Text>
+                        <Box paddingBlockStart="200">
+                          <InlineStack gap="200">
+                            {ANIMATIONS.map((anim) => (
+                              <Button
+                                key={anim}
+                                pressed={form.animation === anim}
+                                onClick={() => update("animation", anim)}
+                              >
+                                {anim}
+                              </Button>
+                            ))}
+                          </InlineStack>
+                        </Box>
+                      </div>
+                      <Checkbox
+                        label="Show close button"
+                        checked={form.showClose}
+                        onChange={(v) => update("showClose", v)}
+                      />
+                    </BlockStack>
+                  )}
+                </Box>
+              </Card>
+            </Layout.Section>
+
+            {/* CỘT PHẢI — Preview */}
+            <Layout.Section>
+              <BlockStack gap="300">
+                <Card>
+                  <Text as="h2" variant="headingMd">
+                    Preview
+                  </Text>
+                  <Box paddingBlockStart="400">
+                    <div
+                      style={{
+                        background: "#f4f6f8",
+                        borderRadius: 8,
+                        minHeight: 500,
+                        display: "flex",
+                        padding: 20,
+                        alignItems:
+                          form.position === "center" ? "center" : "flex-end",
+                        justifyContent:
+                          form.position === "bottom-right"
+                            ? "flex-end"
+                            : form.position === "bottom-left"
+                              ? "flex-start"
+                              : "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          background: form.bgColor,
+                          color: form.textColor,
+                          borderRadius: 6,
+                          padding: "12px 14px",
+                          width: "95%",
+                          height: 200,
+                          boxShadow: "0 4px 24px rgba(0,0,0,0.15)",
+                          position: "relative",
+                        }}
+                      >
+                        {form.showClose && (
+                          <button
+                            style={{
+                              position: "absolute",
+                              top: -8,
+                              right: -8,
+                              background: "#fff",
+                              padding: "4px 7px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              borderRadius: 999,
+                              border: "none",
+                              boxShadow: "0 4px 24px rgba(0,0,0,0.32)",
+                              fontSize: 10,
+                              cursor: "pointer",
+                              color: form.textColor,
+                              zIndex: 1,
+                            }}
+                          >
+                            ✕
+                          </button>
+                        )}
+                        {form.image && (
+                          <div style={{ width: "40%", background: "#eee" }}>
                             <img
                               src={form.image}
                               alt=""
                               style={{
                                 width: "100%",
-                                maxHeight: 200,
+                                height: "100%",
                                 objectFit: "cover",
                                 borderRadius: 8,
-                                display: "block",
-                                opacity: imageUploading ? 0.5 : 1,
-                                transition: "opacity 0.3s ease",
                               }}
                             />
-                            {imageUploading && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  inset: 0,
-                                  borderRadius: 8,
-                                  background: "rgba(0,0,0,0.35)",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    width: 32,
-                                    height: 32,
-                                    border: "3px solid rgba(255,255,255,0.3)",
-                                    borderTop: "3px solid #ffffff",
-                                    borderRadius: "50%",
-                                    animation: "mtu-spin 0.8s linear infinite",
-                                  }}
-                                />
-                              </div>
-                            )}
                           </div>
                         )}
-
-                        {/* Upload */}
-                        <label className={styles.fileButton}>
-                          {imageUploading ? "Uploading..." : "Choose file"}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            disabled={imageUploading}
-                            className={styles.hiddenInput}
-                            onChange={handleFileChange}
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  </s-section>
-                )}
-
-                {/* Tab: Display */}
-                {activeTab === "display" && (
-                  <s-section heading="Display Settings">
-                    <div className={styles.stack16}>
-                      <div>
-                        <p className={styles.fieldLabel8}>Position</p>
-                        <div className={styles.row8}>
-                          {POSITIONS.map((pos) => (
-                            <button
-                              key={pos}
-                              onClick={() => update("position", pos)}
-                              className={`${styles.optionButton} ${
-                                form.position === pos
-                                  ? styles.optionButtonActive
-                                  : ""
-                              }`}
-                            >
-                              {pos}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <p className={styles.fieldLabel8}>Animation</p>
-                        <div className={styles.row8}>
-                          {ANIMATIONS.map((anim) => (
-                            <button
-                              key={anim}
-                              onClick={() => update("animation", anim)}
-                              className={`${styles.optionButton} ${
-                                form.animation === anim
-                                  ? styles.optionButtonActive
-                                  : ""
-                              }`}
-                            >
-                              {anim}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <label className={styles.checkboxLabel}>
-                        <input
-                          type="checkbox"
-                          checked={form.showClose}
-                          onChange={(e) =>
-                            update("showClose", e.target.checked)
-                          }
-                        />
-                        <span className={styles.checkboxLabelText}>
-                          Show close button
-                        </span>
-                      </label>
-                    </div>
-                  </s-section>
-                )}
-              </s-section>
-            </div>
-
-            {/* CỘT PHẢI — Preview */}
-            <div>
-              <s-section heading="Preview">
-                <div className={styles.previewPanel}>
-                  {/* Popup Preview */}
-                  <div
-                    className={styles.previewCanvas}
-                    style={{
-                      alignItems:
-                        form.position === "center" ? "center" : "flex-end",
-                      justifyContent:
-                        form.position === "bottom-right"
-                          ? "flex-end"
-                          : form.position === "bottom-left"
-                            ? "flex-start"
-                            : "center",
-                    }}
-                  >
-                    <div
-                      className={styles.previewPopup}
-                      style={{
-                        background: form.bgColor,
-                        color: form.textColor,
-                      }}
-                    >
-                      {form.showClose && (
-                        <button
-                          className={styles.closeButton}
+                        <div
                           style={{
-                            color: form.textColor,
+                            width: "60%",
+                            padding: "0 25px",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            textAlign: "center",
                           }}
                         >
-                          ✕
-                        </button>
-                      )}
-                      {form.image && (
-                        <div className={styles.previewImageContainer}>
-                          <img
-                            src={form.image}
-                            alt=""
-                            className={styles.previewImage}
-                          />
-                        </div>
-                      )}
-                      <div
-                        className={styles.previewContent}
-                        style={{
-                          color: form.textColor,
-                        }}
-                      >
-                        <h3
-                          className={styles.previewTitle}
-                          style={{
-                            color: form.textColor,
-                          }}
-                        >
-                          {form.title}
-                        </h3>
-                        <p
-                          className={styles.previewDescription}
-                          style={{
-                            color: form.textColor,
-                          }}
-                        >
-                          {form.description}
-                        </p>
-                        {form.btnText && (
-                          <button
-                            className={styles.previewCta}
+                          <h3
                             style={{
-                              background: form.btnColor,
+                              margin: "0 0 8px",
+                              fontSize: 18,
                               color: form.textColor,
                             }}
                           >
-                            {form.btnText}
-                          </button>
-                        )}
+                            {form.title}
+                          </h3>
+                          <p
+                            style={{
+                              margin: "0 0 16px",
+                              fontSize: 14,
+                              color: form.textColor,
+                              opacity: 0.8,
+                            }}
+                          >
+                            {form.description}
+                          </p>
+                          {form.btnText && (
+                            <button
+                              style={{
+                                background: form.btnColor,
+                                color: form.textColor,
+                                border: "none",
+                                borderRadius: 20,
+                                padding: "10px 20px",
+                                fontSize: 14,
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                width: "100%",
+                              }}
+                            >
+                              {form.btnText}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </s-section>
-              {/* button save */}
-              <div className={styles.saveRow}>
-                <s-button
-                  onClick={handleSave}
-                  loading={isSaving || imageUploading ? true : undefined}
-                  {...(imageUploading ? { disabled: true } : {})}
-                >
-                  Save
-                </s-button>
-              </div>
-            </div>
-          </div>
+                  </Box>
+                </Card>
+
+                {/* Save button */}
+                <InlineStack align="end">
+                  <Button
+                    variant="primary"
+                    onClick={handlePublish}
+                    {...(isPublishing ? { loading: true } : {})}
+                    {...(isDisabled ? { disabled: true } : {})}
+                  >
+                    Save
+                  </Button>
+                </InlineStack>
+              </BlockStack>
+            </Layout.Section>
+          </Layout>
         </div>
-      </s-page>
+      </div>
     </>
   );
 }

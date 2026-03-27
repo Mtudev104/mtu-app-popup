@@ -11,6 +11,11 @@ export default function App() {
           rel="stylesheet"
           href="https://cdn.shopify.com/static/fonts/inter/v4/styles.css"
         />
+        {/* Thêm Polaris CSS */}
+        <link
+          rel="stylesheet"
+          href="https://unpkg.com/@shopify/polaris@13.9.5/build/esm/styles.css"
+        />
         <Meta />
         <Links />
       </head>
