@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import type {
   ActionFunctionArgs,
   HeadersFunction,
@@ -85,6 +85,7 @@ export default function Index() {
   const [activeTab, setActiveTab] = useState<Tab>("general");
   const [imageUploading, setImageUploading] = useState(false);
   const [pendingPublish, setPendingPublish] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
 
   const [form, setForm] = useState({
     name: initialPopup?.name || DEFAULT_POPUP.name,
@@ -107,12 +108,14 @@ export default function Index() {
     conditions:
       (initialPopup?.conditions as Condition[]) || DEFAULT_POPUP.conditions,
   });
+  const initialFormRef = useRef(form);
 
   const isSaving = fetcher.state !== "idle";
   const isPublishing = publishFetcher.state !== "idle";
   const isDisabled = imageUploading || isSaving || isPublishing;
 
   useEffect(() => {
+    if (fetcher.data?.popup) setIsDirty(false); // ← reset sau save
     if (fetcher.data?.popup && pendingPublish) {
       //kiem tra xem prisma trả về data không
       setPendingPublish(false);
@@ -134,8 +137,26 @@ export default function Index() {
       shopify.toast.show(publishFetcher.data.error, { isError: true });
   }, [publishFetcher.data]);
 
+  // theo dõ isDtry để hiển thị Unsaved changes
+  useEffect(() => {
+    if (isDirty) {
+      shopify.saveBar.show("popup-save-bar");
+    } else {
+      shopify.saveBar.hide("popup-save-bar");
+    }
+  }, [isDirty]);
+
   const update = useCallback((key: string, value: any) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => {
+      const newForm = { ...prev, [key]: value };
+      const changed = Object.keys(newForm).some(
+        (k) =>
+          JSON.stringify((newForm as any)[k]) !==
+          JSON.stringify((initialFormRef.current as any)[k]),
+      );
+      setIsDirty(changed);
+      return newForm;
+    });
   }, []);
 
   const handlePublish = () => {
@@ -161,6 +182,19 @@ export default function Index() {
   return (
     <>
       <style>{`@keyframes mtu-spin { to { transform: rotate(360deg); } }`}</style>
+      <ui-save-bar id="popup-save-bar">
+        <button variant="primary" onClick={handlePublish}>
+          Save
+        </button>
+        <button
+          onClick={() => {
+            setForm({ ...initialFormRef.current });
+            setIsDirty(false);
+          }}
+        >
+          Discard
+        </button>
+      </ui-save-bar>
       <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
         {/* <s-button
           slot="primary-action"
