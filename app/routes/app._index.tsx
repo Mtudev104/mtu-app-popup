@@ -17,12 +17,14 @@ import {
   TextField,
   Checkbox,
   Button,
-  InlineGrid,
   Layout,
   Divider,
   Box,
-  Page,
+  Select,
+  ChoiceList,
 } from "@shopify/polaris";
+import { DeleteIcon } from "@shopify/polaris-icons";
+type Condition = { field: string; operator: string; value: string };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -35,10 +37,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const body = await request.json();
+  const data = {
+    ...body,
+    conditions: body.conditions ?? [],
+    triggerValue: body.triggerValue ?? null,
+  };
   const popup = await prisma.popup.upsert({
     where: { shop: session.shop },
-    update: body,
-    create: { shop: session.shop, ...body },
+    update: data,
+    create: { shop: session.shop, ...data },
   });
   return { popup };
 };
@@ -46,12 +53,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 type Tab = "general" | "content" | "design" | "display";
 const TABS: Tab[] = ["general", "content", "design", "display"];
 const POSITIONS = ["center", "bottom-left", "bottom-right"] as const;
-const ANIMATIONS = ["fade", "slide"] as const;
 
 const DEFAULT_POPUP = {
   name: "My Popup",
   isActive: false,
-  delay: 3,
   title: "Don't want to miss anything?",
   description:
     "Be the first to see new arrivals, exclusive deals and much more.",
@@ -59,12 +64,17 @@ const DEFAULT_POPUP = {
   btnLink: "",
   bgColor: "#ffffff",
   textColor: "#000000",
-  btnColor: "#000000",
+  btnColor: "#ffb8b8",
   image:
     "https://lavenderstudio.com.vn/wp-content/uploads/2017/03/chup-lookbook-dep-sg.jpg",
   position: "center",
-  animation: "fade",
   showClose: true,
+  triggerType: "on_load",
+  triggerValue: 3,
+  repeatType: "daily",
+  displayScope: "all_pages",
+  matchType: "all",
+  conditions: [] as Condition[],
 };
 
 export default function Index() {
@@ -79,7 +89,6 @@ export default function Index() {
   const [form, setForm] = useState({
     name: initialPopup?.name || DEFAULT_POPUP.name,
     isActive: initialPopup?.isActive ?? DEFAULT_POPUP.isActive,
-    delay: initialPopup?.delay ?? DEFAULT_POPUP.delay,
     title: initialPopup?.title || DEFAULT_POPUP.title,
     description: initialPopup?.description || DEFAULT_POPUP.description,
     btnText: initialPopup?.btnText || DEFAULT_POPUP.btnText,
@@ -89,8 +98,14 @@ export default function Index() {
     btnColor: initialPopup?.btnColor || DEFAULT_POPUP.btnColor,
     image: initialPopup?.image || DEFAULT_POPUP.image,
     position: initialPopup?.position || DEFAULT_POPUP.position,
-    animation: initialPopup?.animation || DEFAULT_POPUP.animation,
     showClose: initialPopup?.showClose ?? DEFAULT_POPUP.showClose,
+    triggerType: initialPopup?.triggerType || DEFAULT_POPUP.triggerType,
+    triggerValue: initialPopup?.triggerValue ?? DEFAULT_POPUP.triggerValue,
+    repeatType: initialPopup?.repeatType || DEFAULT_POPUP.repeatType,
+    displayScope: initialPopup?.displayScope || DEFAULT_POPUP.displayScope,
+    matchType: initialPopup?.matchType || DEFAULT_POPUP.matchType,
+    conditions:
+      (initialPopup?.conditions as Condition[]) || DEFAULT_POPUP.conditions,
   });
 
   const isSaving = fetcher.state !== "idle";
@@ -99,8 +114,10 @@ export default function Index() {
 
   useEffect(() => {
     if (fetcher.data?.popup && pendingPublish) {
+      //kiem tra xem prisma trả về data không
       setPendingPublish(false);
       publishFetcher.submit(
+        //xong moi goi api de luu vao metafield
         {},
         {
           method: "POST",
@@ -121,6 +138,11 @@ export default function Index() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }, []);
 
+  const handlePublish = () => {
+    setPendingPublish(true);
+    fetcher.submit(form, { method: "POST", encType: "application/json" }); //save vao db prisma
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -134,11 +156,6 @@ export default function Index() {
     setImageUploading(false);
     if (data.url) setForm((prev) => ({ ...prev, image: data.url }));
     else shopify.toast.show(data.error || "Upload failed", { isError: true });
-  };
-
-  const handlePublish = () => {
-    setPendingPublish(true);
-    fetcher.submit(form, { method: "POST", encType: "application/json" });
   };
 
   return (
@@ -204,14 +221,24 @@ export default function Index() {
                         checked={form.isActive}
                         onChange={(v) => update("isActive", v)}
                       />
-                      <TextField
-                        label="Delay (seconds)"
-                        type="number"
-                        value={String(form.delay)}
-                        onChange={(v) => update("delay", Number(v))}
-                        helpText="How long to wait before showing the popup"
-                        autoComplete="off"
-                      />
+                      <div>
+                        <Text as="p" variant="bodyMd" fontWeight="medium">
+                          Position
+                        </Text>
+                        <Box paddingBlockStart="200">
+                          <InlineStack gap="200">
+                            {POSITIONS.map((pos) => (
+                              <Button
+                                key={pos}
+                                pressed={form.position === pos}
+                                onClick={() => update("position", pos)}
+                              >
+                                {pos}
+                              </Button>
+                            ))}
+                          </InlineStack>
+                        </Box>
+                      </div>
                     </BlockStack>
                   )}
 
@@ -379,42 +406,234 @@ export default function Index() {
                   {/* Tab: Display */}
                   {activeTab === "display" && (
                     <BlockStack gap="400">
+                      {/* 🔥 Trigger */}
+                      <div>
+                        <ChoiceList
+                          title="Trigger open automatically"
+                          choices={[
+                            { label: "After page loaded", value: "on_load" },
+                            { label: "After specific time", value: "delay" },
+                            { label: "After scrolling down", value: "scroll" },
+                            {
+                              label: "User is leaving the website",
+                              value: "exit_intent",
+                            },
+                          ]}
+                          selected={[form.triggerType]}
+                          onChange={(value) => {
+                            const type = value[0];
+                            update("triggerType", type);
+                            if (type === "delay") update("triggerValue", 3);
+                            if (type === "scroll") update("triggerValue", 20);
+                            if (type === "on_load" || type === "exit_intent")
+                              update("triggerValue", null);
+                          }}
+                        />
+
+                        {/* Trigger value */}
+                        {form.triggerType === "delay" && (
+                          <Box paddingBlockStart="200">
+                            <TextField
+                              label="Seconds"
+                              type="number"
+                              value={String(form.triggerValue ?? 3)}
+                              min={0}
+                              onChange={(v) =>
+                                update("triggerValue", v === "" ? 0 : Number(v))
+                              }
+                              autoComplete="off"
+                            />
+                          </Box>
+                        )}
+                      </div>
+
+                      {/* 🔁 Repeat */}
                       <div>
                         <Text as="p" variant="bodyMd" fontWeight="medium">
-                          Position
+                          Repeat open automatically
                         </Text>
-                        <Box paddingBlockStart="200">
-                          <InlineStack gap="200">
-                            {POSITIONS.map((pos) => (
-                              <Button
-                                key={pos}
-                                pressed={form.position === pos}
-                                onClick={() => update("position", pos)}
-                              >
-                                {pos}
-                              </Button>
-                            ))}
-                          </InlineStack>
-                        </Box>
+                        <Select
+                          //label="Repeat open automatically"
+                          label="Repeat"
+                          labelHidden
+                          options={[
+                            { label: "No repeat", value: "none" },
+                            { label: "Every 3 minutes", value: "3m" },
+                            { label: "Every 5 minutes", value: "5m" },
+                            { label: "Every 10 minutes", value: "10m" },
+                            { label: "Every 30 minutes", value: "30m" },
+                            { label: "Every 1 hour", value: "1h" },
+                            { label: "Every day", value: "daily" },
+                          ]}
+                          value={form.repeatType}
+                          onChange={(v) => update("repeatType", v)}
+                        />
                       </div>
+
+                      {/* 🌍 Display scope */}
                       <div>
-                        <Text as="p" variant="bodyMd" fontWeight="medium">
-                          Animation
-                        </Text>
-                        <Box paddingBlockStart="200">
-                          <InlineStack gap="200">
-                            {ANIMATIONS.map((anim) => (
-                              <Button
-                                key={anim}
-                                pressed={form.animation === anim}
-                                onClick={() => update("animation", anim)}
-                              >
-                                {anim}
-                              </Button>
-                            ))}
-                          </InlineStack>
-                        </Box>
+                        <ChoiceList
+                          title="Displays on"
+                          choices={[
+                            { label: "All pages", value: "all_pages" },
+                            { label: "Home page only", value: "home_page" },
+                            { label: "Custom pages", value: "custom" },
+                          ]}
+                          selected={[form.displayScope]}
+                          onChange={(value) => {
+                            const scope = value[0];
+                            update("displayScope", scope);
+                            if (
+                              scope === "custom" &&
+                              form.conditions.length === 0
+                            ) {
+                              update("conditions", [
+                                {
+                                  field: "page_type",
+                                  operator: "equals",
+                                  value: "home",
+                                },
+                              ]);
+                            }
+                          }}
+                        />
                       </div>
+
+                      {/* ⚖️ Match type */}
+                      {form.displayScope === "custom" && (
+                        <div>
+                          <ChoiceList
+                            title="Must match"
+                            choices={[
+                              { label: "All conditions", value: "all" },
+                              { label: "Any condition", value: "any" },
+                            ]}
+                            selected={[form.matchType]}
+                            onChange={(value) => update("matchType", value[0])}
+                          />
+                        </div>
+                      )}
+
+                      {/* 🧠 Conditions */}
+                      {form.displayScope === "custom" && (
+                        <div>
+                          {(form.conditions as Condition[]).map(
+                            (cond, index) => (
+                              <div
+                                key={index}
+                                style={{
+                                  marginBottom:
+                                    form.conditions.length > 1 ? 8 : 0,
+                                }}
+                              >
+                                <InlineStack gap="200" blockAlign="center">
+                                  <Select
+                                    label="Field"
+                                    labelHidden
+                                    options={[
+                                      {
+                                        label: "Page type",
+                                        value: "page_type",
+                                      },
+                                      { label: "URL", value: "url" },
+                                    ]}
+                                    value={cond.field}
+                                    onChange={(v) => {
+                                      const newConditions = [
+                                        ...form.conditions,
+                                      ];
+                                      newConditions[index].field = v;
+                                      update("conditions", newConditions);
+                                    }}
+                                  />
+
+                                  <Select
+                                    label="Operator"
+                                    labelHidden
+                                    options={[
+                                      { label: "is equal to", value: "equals" },
+                                      {
+                                        label: "is not equal to",
+                                        value: "contains",
+                                      },
+                                    ]}
+                                    value={cond.operator}
+                                    onChange={(v) => {
+                                      const newConditions = [
+                                        ...form.conditions,
+                                      ];
+                                      newConditions[index].operator = v;
+                                      update("conditions", newConditions);
+                                    }}
+                                  />
+
+                                  <Select
+                                    label="Value"
+                                    labelHidden
+                                    value={cond.value}
+                                    options={[
+                                      { label: "Home page", value: "home" },
+                                      {
+                                        label: "Collection page",
+                                        value: "collections",
+                                      },
+                                      {
+                                        label: "Product pages",
+                                        value: "products",
+                                      },
+                                      {
+                                        label: "Blog post pages",
+                                        value: "blogs",
+                                      },
+                                    ]}
+                                    onChange={(v) => {
+                                      const newConditions = [
+                                        ...form.conditions,
+                                      ];
+                                      newConditions[index].value = v;
+                                      update("conditions", newConditions);
+                                    }}
+                                  />
+                                  {form.conditions.length > 1 && (
+                                    <Button
+                                      icon={DeleteIcon}
+                                      variant="plain"
+                                      tone="critical"
+                                      accessibilityLabel="Remove condition"
+                                      onClick={() => {
+                                        const newConditions =
+                                          form.conditions.filter(
+                                            (_, i) => i !== index,
+                                          );
+                                        update("conditions", newConditions);
+                                      }}
+                                    />
+                                  )}
+                                </InlineStack>
+                              </div>
+                            ),
+                          )}
+
+                          <Box paddingBlockStart="200">
+                            <Button
+                              onClick={() =>
+                                update("conditions", [
+                                  ...(form.conditions || []),
+                                  {
+                                    field: "page_type",
+                                    operator: "equals",
+                                    value: "home",
+                                  },
+                                ])
+                              }
+                            >
+                              Add condition
+                            </Button>
+                          </Box>
+                        </div>
+                      )}
+
+                      {/* ❌ Close button */}
                       <Checkbox
                         label="Show close button"
                         checked={form.showClose}

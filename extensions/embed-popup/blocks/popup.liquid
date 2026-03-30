@@ -191,9 +191,16 @@
     var overlay = document.getElementById('mtu-popup-overlay');
     var popup = document.getElementById('mtu-popup');
     var closeBtn = document.getElementById('mtu-popup-close');
-    var delay = {{ cfg.delay | default: 3 }} * 1000;
-    var position = '{{ cfg.position | default: "center" }}';
 
+    var position     = '{{ cfg.position     | default: "center" }}';
+    var triggerType  = '{{ cfg.triggerType  | default: "on_load" }}';
+    var triggerValue = {{ cfg.triggerValue  | default: 3 }};
+    var repeatType   = '{{ cfg.repeatType   | default: "daily" }}';
+    var displayScope = '{{ cfg.displayScope | default: "all_pages" }}';
+    var matchType    = '{{ cfg.matchType    | default: "all" }}';
+    var conditions   = {{ cfg.conditions | json | default: "[]" }};
+
+    // ── 1. Position ──────────────────────────────────────────
     if (position === 'bottom-left') {
       overlay.style.alignItems = 'flex-end';
       overlay.style.justifyContent = 'flex-start';
@@ -204,7 +211,61 @@
       overlay.style.padding = '24px';
     }
 
+    // ── 2. Display scope ─────────────────────────────────────
+    var currentPath = window.location.pathname;
+
+    var pageTypeMap = {
+      'home':        '/',
+      'collections': '/collections',
+      'products':    '/products',
+      'blogs':       '/blogs',
+    };
+
+    function checkCondition(cond) {
+      if (cond.field === 'page_type') {
+        var mapped = pageTypeMap[cond.value] || cond.value;
+        if (cond.operator === 'equals')   return currentPath === mapped;
+        if (cond.operator === 'contains') return currentPath.indexOf(mapped) !== -1;
+      }
+
+      if (cond.field === 'url') {
+        var target = window.location.href;
+        if (cond.operator === 'equals')   return target === cond.value;
+        if (cond.operator === 'contains') return target.indexOf(cond.value) !== -1;
+      }
+
+      return false;
+    }
+
+    if (displayScope === 'home_page' && currentPath !== '/') return;
+
+    if (displayScope === 'custom' && conditions && conditions.length > 0) {
+      var results = conditions.map(checkCondition);
+      var passed  = matchType === 'all'
+        ? results.every(Boolean)
+        : results.some(Boolean);
+      if (!passed) return;
+    }
+
+    // ── 3. Repeat ────────────────────────────────────────────
+    var storageKey = 'mtu_popup_shown';
+    var now        = Date.now();
+    var lastShown  = parseInt(localStorage.getItem(storageKey) || '0', 10);
+    var shouldShow = false;
+
+    if (repeatType === 'none')  shouldShow = lastShown === 0;
+    else if (repeatType === 'daily') shouldShow = (now - lastShown) > 86400000;
+    else if (repeatType === '3m')    shouldShow = (now - lastShown) > 3  * 60 * 1000;
+    else if (repeatType === '5m')    shouldShow = (now - lastShown) > 5  * 60 * 1000;
+    else if (repeatType === '10m')   shouldShow = (now - lastShown) > 10 * 60 * 1000;
+    else if (repeatType === '30m')   shouldShow = (now - lastShown) > 30 * 60 * 1000;
+    else if (repeatType === '1h')    shouldShow = (now - lastShown) > 3600000;
+
+    if (!shouldShow) return;
+
+    // ── 4. Show / Hide ───────────────────────────────────────
     function showPopup() {
+      localStorage.setItem(storageKey, String(Date.now()));
       overlay.style.display = 'flex';
       requestAnimationFrame(function() {
         requestAnimationFrame(function() {
@@ -220,8 +281,32 @@
       setTimeout(function() { overlay.style.display = 'none'; }, 400);
     }
 
-    setTimeout(showPopup, delay);
+    // ── 5. Trigger ───────────────────────────────────────────
+    if (triggerType === 'on_load') {
+      showPopup();
 
+    } else if (triggerType === 'delay') {
+      setTimeout(showPopup, triggerValue * 1000);
+
+    } else if (triggerType === 'scroll') {
+      window.addEventListener('scroll', function onScroll() {
+        var scrolled = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
+        if (scrolled >= 20) {
+          window.removeEventListener('scroll', onScroll);
+          showPopup();
+        }
+      });
+
+    } else if (triggerType === 'exit_intent') {
+      document.addEventListener('mouseleave', function onLeave(e) {
+        if (e.clientY <= 0) {
+          document.removeEventListener('mouseleave', onLeave);
+          showPopup();
+        }
+      });
+    }
+
+    // ── 6. Close ─────────────────────────────────────────────
     if (closeBtn) closeBtn.addEventListener('click', hidePopup);
 
     overlay.addEventListener('click', function(e) {

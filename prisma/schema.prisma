@@ -40,7 +40,7 @@ model Popup {
   // General
   name        String   @default("My Popup")
   isActive    Boolean  @default(false)
-  delay       Int      @default(3)
+  position    String   @default("center")
   
   // Content
   title       String   @default("")
@@ -55,10 +55,27 @@ model Popup {
   image       String?
   
   // Display
-  position    String   @default("center")
-  animation   String   @default("fade")
-  showClose   Boolean  @default(true)
-  
+  triggerType String   @default("on_load") 
+  // values: on_load | delay | scroll | exit_intent
+
+  triggerValue Int?    
+  // dùng cho delay (seconds) hoặc scroll (%), null nếu không cần
+
+  repeatType  String   @default("daily") 
+  // values: none | daily
+
+  displayScope String  @default("all_pages") 
+  // values: all_pages | home_page | custom
+
+  matchType   String   @default("all") 
+  // values: all | any
+
+  conditions  Json?    
+  // lưu list condition dạng:
+  // [{ field: "page_type", operator: "equals", value: "home" }]
+
+  showClose Boolean @default(true)
+
   isPublished Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
