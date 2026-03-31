@@ -218,22 +218,72 @@
       'home':        '/',
       'collections': '/collections',
       'products':    '/products',
-      'blogs':       '/blogs',
+      'blog_list':   '/blogs',
+      'article':     '/blogs',
+      'pages':       '/pages',
+      'cart':        '/cart',
+      'search':      '/search',
     };
 
+    function checkPageType(value, operator) {
+      var prefix = pageTypeMap[value];
+      if (!prefix) return false;
+
+      // home, cart, search luôn exact
+      if (value === 'home' || value === 'cart' || value === 'search') {
+        return currentPath === prefix;
+      }
+
+      // Lấy segment đầu tiên của path
+      var firstSegment = currentPath.split('/').filter(Boolean)[0] || '';
+      var expectedSegment = prefix.replace('/', ''); // "/products" → "products"
+
+      if (operator === 'equals') {
+        return currentPath === prefix;
+      }
+
+      if (operator === 'contains') {
+        // Đúng trang list lẫn trang con
+        return firstSegment === expectedSegment;
+      }
+
+      return false;
+    }
+
+    function checkUrl(operator, value) {
+      if (operator === 'equals') {
+        // Bỏ query string và trailing slash khi so sánh
+        var cleanInput   = value.replace(/\/$/, '');
+        var cleanCurrent = (window.location.origin + window.location.pathname).replace(/\/$/, '');
+        return cleanCurrent === cleanInput;
+      }
+
+      if (operator === 'contains') {
+        // Tách segment để tránh match nhầm
+        var pathname = window.location.pathname;
+        var keySegs  = value.split('/').filter(Boolean);
+        var pathSegs = pathname.split('/').filter(Boolean);
+
+        // Nếu nhập full URL https://...
+        if (value.indexOf('http') === 0) {
+          return window.location.href.indexOf(value) !== -1;
+        }
+
+        for (var i = 0; i <= pathSegs.length - keySegs.length; i++) {
+          var match = keySegs.every(function(seg, j) {
+            return pathSegs[i + j] === seg;
+          });
+          if (match) return true;
+        }
+        return false;
+      }
+
+      return false;
+    }
+
     function checkCondition(cond) {
-      if (cond.field === 'page_type') {
-        var mapped = pageTypeMap[cond.value] || cond.value;
-        if (cond.operator === 'equals')   return currentPath === mapped;
-        if (cond.operator === 'contains') return currentPath.indexOf(mapped) !== -1;
-      }
-
-      if (cond.field === 'url') {
-        var target = window.location.href;
-        if (cond.operator === 'equals')   return target === cond.value;
-        if (cond.operator === 'contains') return target.indexOf(cond.value) !== -1;
-      }
-
+      if (cond.field === 'page_type') return checkPageType(cond.value, cond.operator);
+      if (cond.field === 'url')       return checkUrl(cond.operator, cond.value);
       return false;
     }
 

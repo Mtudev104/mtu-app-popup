@@ -24,6 +24,7 @@ import {
   ChoiceList,
 } from "@shopify/polaris";
 import { DeleteIcon } from "@shopify/polaris-icons";
+import { RichTextEditor } from "app/components/RichTextEditor";
 type Condition = { field: string; operator: string; value: string };
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -195,7 +196,14 @@ export default function Index() {
           Discard
         </button>
       </ui-save-bar>
-      <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+      <div
+        style={{
+          width: "100%",
+          display: "flex",
+          justifyContent: "center",
+          padding: "0 20px",
+        }}
+      >
         {/* <s-button
           slot="primary-action"
           onClick={handlePublish}
@@ -206,7 +214,7 @@ export default function Index() {
         </s-button> */}
 
         {/* Layout 2 cột */}
-        <div style={{ padding: 16, maxWidth: "82rem" }}>
+        <div style={{ padding: "16px 0", width: "82rem" }}>
           <Layout>
             <Layout.Section variant="oneThird">
               {/* CỘT TRÁI — Editor */}
@@ -279,18 +287,15 @@ export default function Index() {
                   {/* Tab: Content */}
                   {activeTab === "content" && (
                     <BlockStack gap="400">
-                      <TextField
+                      <RichTextEditor
                         label="Title"
                         value={form.title}
                         onChange={(v) => update("title", v)}
-                        autoComplete="off"
                       />
-                      <TextField
+                      <RichTextEditor
                         label="Description"
                         value={form.description}
                         onChange={(v) => update("description", v)}
-                        multiline={3}
-                        autoComplete="off"
                       />
                       <TextField
                         label="Button text"
@@ -576,7 +581,11 @@ export default function Index() {
                                       const newConditions = [
                                         ...form.conditions,
                                       ];
-                                      newConditions[index].field = v;
+                                      newConditions[index] = {
+                                        ...newConditions[index],
+                                        field: v,
+                                        value: v === "page_type" ? "home" : "", // reset value khi đổi field
+                                      };
                                       update("conditions", newConditions);
                                     }}
                                   />
@@ -587,7 +596,7 @@ export default function Index() {
                                     options={[
                                       { label: "is equal to", value: "equals" },
                                       {
-                                        label: "is not equal to",
+                                        label: "contains",
                                         value: "contains",
                                       },
                                     ]}
@@ -601,33 +610,71 @@ export default function Index() {
                                     }}
                                   />
 
-                                  <Select
-                                    label="Value"
-                                    labelHidden
-                                    value={cond.value}
-                                    options={[
-                                      { label: "Home page", value: "home" },
-                                      {
-                                        label: "Collection page",
-                                        value: "collections",
-                                      },
-                                      {
-                                        label: "Product pages",
-                                        value: "products",
-                                      },
-                                      {
-                                        label: "Blog post pages",
-                                        value: "blogs",
-                                      },
-                                    ]}
-                                    onChange={(v) => {
-                                      const newConditions = [
-                                        ...form.conditions,
-                                      ];
-                                      newConditions[index].value = v;
-                                      update("conditions", newConditions);
-                                    }}
-                                  />
+                                  {cond.field === "url" ? (
+                                    <div style={{ flex: 1 }}>
+                                      <TextField
+                                        label="Value"
+                                        labelHidden
+                                        value={cond.value}
+                                        onChange={(v) => {
+                                          const newConditions = [
+                                            ...form.conditions,
+                                          ];
+                                          newConditions[index] = {
+                                            ...newConditions[index],
+                                            value: v,
+                                          };
+                                          update("conditions", newConditions);
+                                        }}
+                                        placeholder="https://...."
+                                        autoComplete="off"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <Select
+                                      label="Value"
+                                      labelHidden
+                                      value={cond.value}
+                                      options={[
+                                        { label: "Home page", value: "home" },
+                                        {
+                                          label: "Collection pages",
+                                          value: "collections",
+                                        },
+                                        {
+                                          label: "Product pages",
+                                          value: "products",
+                                        },
+                                        {
+                                          label: "Blog list pages",
+                                          value: "blog_list",
+                                        },
+                                        {
+                                          label: "Blog post pages",
+                                          value: "article",
+                                        },
+                                        {
+                                          label: "Custom pages (About...)",
+                                          value: "pages",
+                                        },
+                                        { label: "Cart page", value: "cart" },
+                                        {
+                                          label: "Search page",
+                                          value: "search",
+                                        },
+                                      ]}
+                                      onChange={(v) => {
+                                        const newConditions = [
+                                          ...form.conditions,
+                                        ];
+                                        newConditions[index] = {
+                                          ...newConditions[index],
+                                          value: v,
+                                        };
+                                        update("conditions", newConditions);
+                                      }}
+                                    />
+                                  )}
                                   {form.conditions.length > 1 && (
                                     <Button
                                       icon={DeleteIcon}
@@ -689,7 +736,7 @@ export default function Index() {
                   <Box paddingBlockStart="400">
                     <div
                       style={{
-                        background: "#f4f6f8",
+                        background: "#DFE1E3",
                         borderRadius: 8,
                         minHeight: 500,
                         display: "flex",
@@ -771,9 +818,8 @@ export default function Index() {
                               fontSize: 18,
                               color: form.textColor,
                             }}
-                          >
-                            {form.title}
-                          </h3>
+                            dangerouslySetInnerHTML={{ __html: form.title }}
+                          />
                           <p
                             style={{
                               margin: "0 0 16px",
@@ -781,9 +827,10 @@ export default function Index() {
                               color: form.textColor,
                               opacity: 0.8,
                             }}
-                          >
-                            {form.description}
-                          </p>
+                            dangerouslySetInnerHTML={{
+                              __html: form.description,
+                            }}
+                          />
                           {form.btnText && (
                             <button
                               style={{
