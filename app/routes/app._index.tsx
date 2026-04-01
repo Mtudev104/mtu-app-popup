@@ -142,10 +142,10 @@ export default function Index() {
   useEffect(() => {
     if (isDirty) {
       shopify.saveBar.show("popup-save-bar");
-    } else {
+    } else if (!isSaving && !isPublishing) {
       shopify.saveBar.hide("popup-save-bar");
     }
-  }, [isDirty]);
+  }, [isDirty, isSaving, isPublishing]);
 
   const update = useCallback((key: string, value: any) => {
     setForm((prev) => {
@@ -184,14 +184,19 @@ export default function Index() {
     <>
       <style>{`@keyframes mtu-spin { to { transform: rotate(360deg); } }`}</style>
       <ui-save-bar id="popup-save-bar">
-        <button variant="primary" onClick={handlePublish}>
-          Save
+        <button
+          variant="primary"
+          onClick={handlePublish}
+          disabled={isDisabled || undefined}
+        >
+          {isSaving || isPublishing ? "Saving..." : "Save"}
         </button>
         <button
           onClick={() => {
             setForm({ ...initialFormRef.current });
             setIsDirty(false);
           }}
+          disabled={isDisabled || undefined}
         >
           Discard
         </button>
