@@ -35,17 +35,30 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             type: "json",
             value: JSON.stringify({
               isActive: popup.isActive,
-              delay: popup.delay,
+
+              // Content
               title: popup.title,
               description: popup.description,
               btnText: popup.btnText,
               btnLink: popup.btnLink,
+
+              // Design
               bgColor: popup.bgColor,
               textColor: popup.textColor,
               btnColor: popup.btnColor,
               image: popup.image,
+
+              // General
               position: popup.position,
-              animation: popup.animation,
+
+              // Display (NEW)
+              triggerType: popup.triggerType,
+              triggerValue: popup.triggerValue,
+              repeatType: popup.repeatType,
+              displayScope: popup.displayScope,
+              matchType: popup.matchType,
+              conditions: popup.conditions,
+
               showClose: popup.showClose,
             }),
           },

@@ -2,7 +2,12 @@ import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 
 export default function App() {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      data-gramm="false"
+      data-gramm_editor="false"
+    >
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -10,6 +15,11 @@ export default function App() {
         <link
           rel="stylesheet"
           href="https://cdn.shopify.com/static/fonts/inter/v4/styles.css"
+        />
+        {/* Thêm Polaris CSS */}
+        <link
+          rel="stylesheet"
+          href="https://unpkg.com/@shopify/polaris@13.9.5/build/esm/styles.css"
         />
         <Meta />
         <Links />

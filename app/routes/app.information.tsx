@@ -5,7 +5,16 @@ import {
 } from "react-router";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
-import styles from "./styles/information.module.css";
+import {
+  Box,
+  Card,
+  BlockStack,
+  InlineGrid,
+  Text,
+  Link,
+  Divider,
+  Page,
+} from "@shopify/polaris";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
@@ -53,91 +62,75 @@ export default function InformationPage() {
   const planName = shop?.plan?.displayName as string | undefined;
   const isPartnerDev = Boolean(shop?.plan?.partnerDevelopment);
 
+  const fields: { label: string; value: React.ReactNode }[] = [
+    { label: "Shop name", value: safe(shop?.name) },
+    { label: "Shop owner", value: safe(shop?.shopOwnerName) },
+    { label: "Email", value: safe(shop?.email) },
+    {
+      label: "Domain",
+      value: domainUrl ? (
+        <Link url={domainUrl} target="_blank">
+          {domainUrl}
+        </Link>
+      ) : (
+        "—"
+      ),
+    },
+    { label: "Country", value: safe(shop?.billingAddress?.country) },
+    { label: "Phone number", value: safe(shop?.billingAddress?.phone) },
+    { label: "Plan", value: safe(planName) },
+    { label: "Partner development", value: isPartnerDev ? "Yes" : "No" },
+  ];
+
   return (
-    <s-page heading="Shop Management">
-      <s-section>
-        <div className={styles.container}>
-          <div className={styles.card}>
-            <div className={styles.cardHeader}>
-              <div className={styles.titleWrap}>
-                <p className={styles.title}>Store information</p>
-                <p className={styles.subtitle}>
-                  Quickly view the key information Shopify is providing for your
-                  app.
-                </p>
-              </div>
-            </div>
+    <Page title="Shop Management">
+      <Box paddingBlockStart="300">
+        <Card>
+          <BlockStack gap="300">
+            {/* Header */}
+            <BlockStack gap="100">
+              <Text as="h2" variant="headingMd">
+                Store information
+              </Text>
+              <Text as="p" variant="bodySm" tone="subdued">
+                Quickly view the key information Shopify is providing for your
+                app.
+              </Text>
+            </BlockStack>
 
-            <div className={styles.grid}>
-              <div className={styles.field}>
-                <div className={styles.label}>Shop name</div>
-                <div className={styles.value}>{safe(shop?.name)}</div>
-              </div>
+            <Divider />
 
-              <div className={styles.field}>
-                <div className={styles.label}>Shop owner</div>
-                <div className={styles.value}>{safe(shop?.shopOwnerName)}</div>
-              </div>
-
-              <div className={styles.field}>
-                <div className={styles.label}>Email</div>
-                <div className={styles.value}>{safe(shop?.email)}</div>
-              </div>
-
-              <div className={styles.field}>
-                <div className={styles.label}>Domain</div>
-                <div className={styles.value}>
-                  {domainUrl ? (
-                    <a className={styles.link} href={domainUrl} target="_blank">
-                      {domainUrl}
-                    </a>
-                  ) : (
-                    <span className={styles.valueMuted}>—</span>
-                  )}
+            {/* Grid fields */}
+            <InlineGrid columns={{ xs: 1, sm: 2 }} gap="300">
+              {fields.map(({ label, value }) => (
+                <div
+                  key={label}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    background: "#f6f6f7",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                  }}
+                >
+                  <Text
+                    as="span"
+                    variant="bodySm"
+                    fontWeight="semibold"
+                    tone="subdued"
+                  >
+                    {label.toUpperCase()}
+                  </Text>
+                  <Text as="span" variant="bodyMd">
+                    {value}
+                  </Text>
                 </div>
-              </div>
-
-              <div className={styles.field}>
-                <div className={styles.label}>National</div>
-                <div className={styles.value}>
-                  {safe(shop?.billingAddress?.country)}
-                </div>
-              </div>
-
-              <div className={styles.field}>
-                <div className={styles.label}>Phone number</div>
-                <div className={styles.value}>
-                  {safe(shop?.billingAddress?.phone)}
-                </div>
-              </div>
-
-              <div className={styles.field}>
-                <div className={styles.label}>Plan</div>
-                <div className={styles.value}>{safe(planName)}</div>
-              </div>
-
-              <div className={styles.field}>
-                <div className={styles.label}>Partner development</div>
-                <div className={styles.value}>
-                  {isPartnerDev ? "Yes" : "No"}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </s-section>
-      <s-section slot="aside" heading="Resources">
-        <s-unordered-list>
-          <s-list-item>
-            <s-link
-              href="https://shopify.dev/docs/apps/design-guidelines/navigation#app-nav"
-              target="_blank"
-            >
-              App nav best practices
-            </s-link>
-          </s-list-item>
-        </s-unordered-list>
-      </s-section>
-    </s-page>
+              ))}
+            </InlineGrid>
+          </BlockStack>
+        </Card>
+      </Box>
+    </Page>
   );
 }
