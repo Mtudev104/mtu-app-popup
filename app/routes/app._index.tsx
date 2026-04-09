@@ -27,34 +27,6 @@ import { DeleteIcon } from "@shopify/polaris-icons";
 import { RichTextEditor } from "app/components/RichTextEditor";
 type Condition = { field: string; operator: string; value: string };
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const popup = await prisma.popup.findUnique({
-    where: { shop: session.shop },
-  });
-  return { popup };
-};
-
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const body = await request.json();
-  const data = {
-    ...body,
-    conditions: body.conditions ?? [],
-    triggerValue: body.triggerValue ?? null,
-  };
-  const popup = await prisma.popup.upsert({
-    where: { shop: session.shop },
-    update: data,
-    create: { shop: session.shop, ...data },
-  });
-  return { popup };
-};
-
-type Tab = "general" | "content" | "design" | "display";
-const TABS: Tab[] = ["general", "content", "design", "display"];
-const POSITIONS = ["center", "bottom-left", "bottom-right"] as const;
-
 const DEFAULT_POPUP = {
   name: "My Popup",
   isActive: false,
@@ -77,6 +49,43 @@ const DEFAULT_POPUP = {
   matchType: "all",
   conditions: [] as Condition[],
 };
+
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const { session } = await authenticate.admin(request);
+  console.log("🚀 ~ loader ~ session:", session);
+  let popup = await prisma.popup.findUnique({
+    where: { shop: session.shop },
+  });
+  if (!popup) {
+    popup = await prisma.popup.create({
+      data: {
+        shop: session.shop,
+        ...DEFAULT_POPUP,
+      },
+    });
+  }
+  return { popup };
+};
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const { session } = await authenticate.admin(request);
+  const body = await request.json();
+  const data = {
+    ...body,
+    conditions: body.conditions ?? [],
+    triggerValue: body.triggerValue ?? null,
+  };
+  const popup = await prisma.popup.upsert({
+    where: { shop: session.shop },
+    update: data,
+    create: { shop: session.shop, ...data },
+  });
+  return { popup };
+};
+
+type Tab = "general" | "content" | "design" | "display";
+const TABS: Tab[] = ["general", "content", "design", "display"];
+const POSITIONS = ["center", "bottom-left", "bottom-right"] as const;
 
 export default function Index() {
   const { popup: initialPopup } = useLoaderData<typeof loader>();

@@ -2,12 +2,11 @@
 
 client_id = "9af711af41b9f8348b892fe14b0adf2d"
 name = "mtu-app-popup"
-application_url = "https://example.com"
+application_url = "https://f58f-42-114-43-112.ngrok-free.app"
 embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
-include_config_on_deploy = true
 
 [webhooks]
 api_version = "2026-04"
@@ -25,7 +24,7 @@ api_version = "2026-04"
 scopes = "write_metaobject_definitions,write_metaobjects,write_products,write_files"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://f58f-42-114-43-112.ngrok-free.app/auth" ]
 
 [product.metafields.app.demo_info]
 type = "single_line_text_field"

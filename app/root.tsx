@@ -1,4 +1,6 @@
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import { AppProvider } from "@shopify/polaris";
+import en from "@shopify/polaris/locales/en.json";
 
 export default function App() {
   return (
@@ -16,7 +18,6 @@ export default function App() {
           rel="stylesheet"
           href="https://cdn.shopify.com/static/fonts/inter/v4/styles.css"
         />
-        {/* Thêm Polaris CSS */}
         <link
           rel="stylesheet"
           href="https://unpkg.com/@shopify/polaris@13.9.5/build/esm/styles.css"
@@ -25,7 +26,10 @@ export default function App() {
         <Links />
       </head>
       <body suppressHydrationWarning>
-        <Outlet />
+        <AppProvider i18n={en}>
+          <Outlet />
+        </AppProvider>
+
         <ScrollRestoration />
         <Scripts />
       </body>

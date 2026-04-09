@@ -2,7 +2,7 @@ import type { LoaderFunctionArgs } from "react-router";
 import { redirect, Form, useLoaderData } from "react-router";
 
 import { login } from "../../shopify.server";
-
+import { useState } from "react";
 import {
   Box,
   Button,
@@ -25,6 +25,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function App() {
   const { showForm } = useLoaderData<typeof loader>();
+  const [shop, setShop] = useState("");
 
   return (
     <Page>
@@ -47,6 +48,8 @@ export default function App() {
                       autoComplete="off"
                       label="Shop domain"
                       name="shop"
+                      value={shop}
+                      onChange={setShop}
                       placeholder="my-shop-domain.myshopify.com"
                     />
                   </Box>
